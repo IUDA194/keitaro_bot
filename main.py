@@ -24,7 +24,7 @@ def info():
     status = request.args.get("status")
     revenue = request.args.get("revenue")
     for id in INFO_CHAT_ID:
-        if id and sub_id_10 and sub_id_11 and sub_id_12 and sub_id_13 and sub_id_14 and sub_id_15 and subid and status:
+        if id:
             database.create_request(sub_id_10,
                         sub_id_11,
                         sub_id_12,
