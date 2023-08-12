@@ -23,32 +23,32 @@ def info():
     subid = request.args.get('subid')
     status = request.args.get("status")
     revenue = request.args.get("revenue")
+    for id in INFO_CHAT_ID:
+        if id and sub_id_10 and sub_id_11 and sub_id_12 and sub_id_13 and sub_id_14 and sub_id_15 and subid and status:
+            database.create_request(sub_id_10,
+                        sub_id_11,
+                        sub_id_12,
+                        sub_id_13,
+                        sub_id_14,
+                        sub_id_15,
+                        subid,
+                        status,
+                        revenue)
+            async def send():
+                await bot.send_message(id, f"""<b>Пользователь</b> : {sub_id_10}
+    <b>ID конверсии</b> : {subid}
+    <b>ID оффера</b> : {sub_id_11}
+    <b>ID страны</b> : {sub_id_12}
+    <b>Пиксель</b> : {sub_id_13}
+    <b>Креатив</b> : {sub_id_14}
+    <b>Рекламный кабинет</b> : {sub_id_15}
+    <b>Статус конверсии</b> : {status}
+    <b>Профит</b> : {revenue}""")
 
-    if INFO_CHAT_ID and sub_id_10 and sub_id_11 and sub_id_12 and sub_id_13 and sub_id_14 and sub_id_15 and subid and status:
-        database.create_request(sub_id_10,
-                       sub_id_11,
-                       sub_id_12,
-                       sub_id_13,
-                       sub_id_14,
-                       sub_id_15,
-                       subid,
-                       status,
-                       revenue)
-        async def send():
-            await bot.send_message(INFO_CHAT_ID, f"""<b>Пользователь</b> : {sub_id_10}
-<b>ID конверсии</b> : {subid}
-<b>ID оффера</b> : {sub_id_11}
-<b>ID страны</b> : {sub_id_12}
-<b>Пиксель</b> : {sub_id_13}
-<b>Креатив</b> : {sub_id_14}
-<b>Рекламный кабинет</b> : {sub_id_15}
-<b>Статус конверсии</b> : {status}
-<b>Профит</b> : {revenue}""")
-
-        loop.run_until_complete(send())  # Используем цикл событий для выполнения асинхронной функции
-        return 'Message sent successfully'
-    else:
-        return 'Invalid request data'
+            loop.run_until_complete(send())  # Используем цикл событий для выполнения асинхронной функции
+            return 'Message sent successfully'
+        else:
+            return 'Invalid request data'
     
 @app.route('/send_message', methods=['GET'])
 def send_message():
@@ -66,4 +66,4 @@ def send_message():
         return 'Invalid request data'
 
 if __name__ == '__main__':
-    app.run(host='213.166.71.72', port=5000)
+    app.run()#host='213.166.71.72', port=5000)
