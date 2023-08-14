@@ -20,7 +20,8 @@ with db:
         )""")
     cur.execute("""CREATE TABLE if not exists users (
         chat_id TEXT,
-        sub_id_10 TEXT
+        sub_id_10 TEXT,
+        balance TEXT
         )""")
     db.commit()
     
@@ -114,9 +115,7 @@ class database:
     
     def select_request(self, sub_id_10 : str, time_delta : int):
         if sub_id_10 and time_delta:
-
-            results_col = 0
-            revenue_temp = []    
+            results_col = 0  
             revenue = 0    
             statuses = []    
 
@@ -129,15 +128,19 @@ class database:
             results_col = len(results)
             for result in results:
                 statuses.append(result[7])
-                if result[7] == "approve":
-                    try: revenue_temp.append(float(result[8]))
-                    except TypeError: pass
-                    except: pass
-            revenue = sum(revenue_temp)
+            cur.execute(""" SELECT balance FROM users WHERE sub_id_10 = ? """, (sub_id_10,))
+            balance_ansver = cur.fetchall()
+            revenue = balance_ansver[0][0]
+
             return {"status" : True,
-                    "data" : {"revenue" :int(round(revenue)),
-                              "statuses" : statuses,
-                              "results_col" : results_col},
+                    "data" : {
+                        "balance" : revenue, 
+                        "timedelta" : time_delta,
+                        "trash" : statuses.count("trash"),
+                        "hold" : statuses.count("waiting"),
+                        "approve" : statuses.count("approve"),
+                        "col" : results_col
+                    },
                     "text" : f"""Пользователь: {sub_id_10}
 Период: {time_delta}
 Конверсии: {results_col}
@@ -148,5 +151,35 @@ class database:
         else:
             return {"status" : "Error", "text" : "Простите что-то пошло не так, попробуйте попытку позже"}
 
+    def update_revenue(self, new_balance : int , sub_id_10 : str):
+        try:
+            int(new_balance)
+            cur.execute(""" SELECT * FROM users WHERE sub_id_10 = ? """, (sub_id_10,))
+            if len(cur.fetchall()) >= 1:
+                cur.execute(""" UPDATE users SET balance = ? WHERE sub_id_10 = ? """, (new_balance, sub_id_10))
+                db.commit()
+                return {"status" : True}
+            else: return {"status" : False, "text" : "Такого sub_id_10 не существует"}
+        except ValueError: return {"status" : False, "text" : "Введите новый баланс цифрой"}
+        except: return {"status" : False, "text" : "Что-то пошло не так"}
 
-print(database().select_request("test_value", 1))
+    def check_amount_on_balance(self, chat_id : str, amount : int):
+        try:
+            if int(amount) == int:
+                cur.execute(""" SELECT balance FROM users WHERE chat_id = ? """, (chat_id,))
+                if int(cur.fetchall()) <= amount:
+                    return {"status" : True}
+                else:
+                    return {"status" : False, "text" : "У вас нет столько денег на балансе"}
+        except ValueError: return {"status" : False, "text" : "Введите сумму для вывода цифрой"}
+        except: return {"status" : False, "text" : "Что-то пошло не так"}
+
+    def select_balance(self, chat_id : str):
+        if chat_id:
+            cur.execute(""" SELECT * FROM users WHERE chat_id = ? """, (chat_id,))
+            if len(cur.fetchall()) >= 1:
+                cur.execute(""" SELECT balance FROM users WHERE chat_id = ? """, (chat_id,))
+                result = cur.fetchall()
+                return {"status" : True, "data" : result[0][0]}
+            else: return {"status" : False, "text" : "Incorrect input"}
+        else: return {"status" : False, "text" : "Incorrect input"}
