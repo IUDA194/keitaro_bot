@@ -144,7 +144,7 @@ async def start_command(message : types.Message, state : FSMContext):
         try:
             await bot.send_message(chat_id, f"""Запрос на вывод средств
                                 
-sub_id_10 = {1}
+sub_id_10 = {db.select_user(message.from_user.id)['name']}
 
 кошелёк = {message.text}
 

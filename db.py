@@ -30,7 +30,7 @@ class database:
     def create_user(self, chat_id, sub_id_10):
         cur.execute(""" SELECT * FROM users WHERE chat_id = ? """, (chat_id,))
         if len(cur.fetchall()) < 1:
-            cur.execute(""" INSERT INTO users ("chat_id", "sub_id_10") VALUES (?,?) """, (chat_id, sub_id_10))
+            cur.execute(""" INSERT INTO users ("chat_id", "sub_id_10", "balance") VALUES (?,?,?) """, (chat_id, sub_id_10, "0"))
         else: 
             cur.execute(""" UPDATE users SET sub_id_10 = ? WHERE chat_id = ?""", (sub_id_10, chat_id))
         db.commit()
