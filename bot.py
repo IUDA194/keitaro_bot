@@ -150,7 +150,9 @@ async def process_buy_command(callback_query: types.CallbackQuery, state : FSMCo
             await bot.send_message(callback_query.from_user.id, "Напишите /start")
             await state.finish()
     elif callback_query.data == "ref_link":
-        await bot.send_message(callback_query.from_user.id, f"Твоя реферальная ссылка: http://t.me/{BOT_NAME}?start={callback_query.from_user.id}")
+        kb = InlineKeyboardMarkup().add(InlineKeyboardButton("Меню", callback_data="m"))
+        await state.finish()
+        await bot.send_message(callback_query.from_user.id, f"Твоя реферальная ссылка: http://t.me/{BOT_NAME}?start={callback_query.from_user.id}", reply_markup=kb)
 
 amount_data = {}
 
