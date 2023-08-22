@@ -21,8 +21,13 @@ with db:
     cur.execute("""CREATE TABLE if not exists users (
         chat_id TEXT,
         sub_id_10 TEXT,
-        balance TEXT
+        balance TEXT, 
+        ref_balance TEXT
         )""")
+    cur.execute("""CREATE TABLE if not exists refs (
+        chat_id TEXT,
+        ref TEXT
+        )""") 
     db.commit()
     
     
@@ -30,7 +35,7 @@ class database:
     def create_user(self, chat_id, sub_id_10):
         cur.execute(""" SELECT * FROM users WHERE chat_id = ? """, (chat_id,))
         if len(cur.fetchall()) < 1:
-            cur.execute(""" INSERT INTO users ("chat_id", "sub_id_10", "balance") VALUES (?,?,?) """, (chat_id, sub_id_10, "0"))
+            cur.execute(""" INSERT INTO users ("chat_id", "sub_id_10", "balance", "ref_balance") VALUES (?,?,?,?) """, (chat_id, sub_id_10, "0", "0"))
         else: 
             cur.execute(""" UPDATE users SET sub_id_10 = ? WHERE chat_id = ?""", (sub_id_10, chat_id))
         db.commit()
@@ -144,9 +149,9 @@ class database:
                     "text" : f"""Пользователь: {sub_id_10}
 Период: {time_delta}
 Конверсии: {results_col}
-Треш: {statuses.count("trash")}
-Холд: {statuses.count("waiting")}
-Апрув: {statuses.count("approve")}
+Треш: {statuses.count("trash") + statuses.count("reject") + statuses.count("decline") + statuses.count("invalid") + + statuses.count("canceled")} 
+Холд: {statuses.count("waiting") + statuses.count("new")}
+Апрув: {statuses.count("approve") + statuses.count("confirm")}
 Баланс: {revenue} """}
         else:
             return {"status" : "Error", "text" : "Простите что-то пошло не так, попробуйте попытку позже"}
@@ -180,6 +185,35 @@ class database:
             if len(cur.fetchall()) >= 1:
                 cur.execute(""" SELECT balance FROM users WHERE chat_id = ? """, (chat_id,))
                 result = cur.fetchall()
-                return {"status" : True, "data" : result[0][0]}
+                cur.execute(""" SELECT ref_balance FROM users WHERE chat_id = ? """, (chat_id,))
+                ref_result = cur.fetchall()
+                return {"status" : True, "data" : result[0][0], "ref_balance" : ref_result[0][0]}
             else: return {"status" : False, "text" : "Incorrect input"}
         else: return {"status" : False, "text" : "Incorrect input"}
+
+    def update_ref_balance(self, chat_id, ref_id): # chat_id - Айди чела который пишет старт, а ref_id - айди чела который хочет стать рефералом 
+        cur.execute(""" SELECT * FROM users WHERE chat_id = ?""", (ref_id,))
+
+        try:
+            if int(cur.fetchall()[0][0]) >= 1:
+                cur.execute(""" SELECT ref_balance FROM users WHERE chat_id = ? """, (ref_id,))
+                old_balance = int(cur.fetchall()[0][0])
+                cur.execute(""" UPDATE users SET ref_balance = ? WHERE chat_id = ?""", (old_balance + 1, ref_id))
+                cur.execute(""" INSERT INTO refs ("chat_id", "ref") VALUES (?,?) """, (ref_id, chat_id))
+                db.commit()
+                return {"status" : True}
+            else:
+                return {"status" : False, "text" : "Простите такого юзера не существует. Вы не можете стать его рефералом"}
+        except: return {"status" : False, "text" : "Произошла непредвиденная ошибка"}
+
+    def select_refs(self, chat_id):
+        cur.execute(""" SELECT * FROM refs WHERE chat_id = ? """, (chat_id,))
+
+        result = []
+
+        temp_data = cur.fetchall()
+
+        for i in temp_data:
+            result.append(i[1])
+
+        return {'status' : True, "data" : result}

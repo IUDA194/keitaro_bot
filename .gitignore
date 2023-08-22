@@ -1,3 +1,7 @@
 venv
 *.db
 __pycache__
+*.db
+tt_d.py
+*.mp4
+shorts_dowonload.py

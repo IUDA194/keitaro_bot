@@ -11,18 +11,21 @@ from aiogram.types.input_file import InputFile
 import sqlite3 as sql
 import random
 
-from config import TOKEN, ADMIN_ID
+from config import TOKEN, ADMIN_ID, BOT_NAME
 from db import database
 
 admin_kb = InlineKeyboardMarkup(row_width=1).add(
     InlineKeyboardButton("Добавить айди", callback_data="add_id"),
-    InlineKeyboardButton("Изменить баланс", callback_data="change_balance")
+    InlineKeyboardButton("Изменить баланс", callback_data="change_balance"),
+    InlineKeyboardButton("Просмотреть реферелов", callback_data="ref_view")
 )
 
 class photo_do_state(StatesGroup):
     user = State()
     time_delta = State()
 
+class ref_view(StatesGroup):
+    user_id = State()
 
 class add_user(StatesGroup):
     user_id = State()
@@ -33,6 +36,7 @@ class change_balance(StatesGroup):
     new_balance = State()
 
 class out_cash(StatesGroup):
+    typpe = State()
     amount = State()
     usdt_wallet = State()
 
@@ -43,29 +47,60 @@ db = database()
 data = {}
 data_2 = {}
 
-@dp.message_handler(commands=["start", "старт"])
+def extract_chat_id_from_link(text): #Ну типа достаёт чат айди реферала из старт ссылки (Я спиздил этот код на стек офер флоу, если не рабоатет не ебу)
+    return text.split()[1] if len(text.split()) > 1 else None
+
+@dp.message_handler(commands=["start", "старт"], state="*")
 async def start_command(message : types.Message):
-    await message.delete()
-    db_request = db.select_user(message.from_user.id)
-    if db_request["status"]:
-        global data
-        data[message.chat.id] = {}
-        data[message.chat.id]["user"] = db_request["name"]
-        kb = InlineKeyboardMarkup(row_width=1).add(
-            InlineKeyboardButton("Сутки", callback_data="1"),
-            InlineKeyboardButton("7 дней", callback_data="7"),
-            InlineKeyboardButton("30 дней", callback_data="30"),
-            InlineKeyboardButton("Вывод средств", callback_data="cash_out")
-        )
-        await bot.send_message(message.chat.id, "Выбери время для просмотра статистики: ", reply_markup=kb)
-        await photo_do_state.time_delta.set()
-    else: await bot.send_message(message.from_user.id, db_request['text'])
+    global data
+    up_ref_id = extract_chat_id_from_link(message.text)
+    if up_ref_id:
+        await message.delete()
+        print(db.update_ref_balance(message.from_user.id, up_ref_id))
+        db_request = db.select_user(message.from_user.id)
+        if db_request["status"]:
+            data[message.chat.id] = {}
+            balance = db.select_balance(message.chat.id)
+            data[message.chat.id]["user"] = db_request["name"]
+            kb = InlineKeyboardMarkup(row_width=1).add(
+                InlineKeyboardButton("Сутки", callback_data="1"),
+                InlineKeyboardButton("7 дней", callback_data="7"),
+                InlineKeyboardButton("30 дней", callback_data="30"),
+                InlineKeyboardButton("Вывод средств", callback_data="cash_out"),
+                InlineKeyboardButton("Реферальная ссылка", callback_data="ref_link")
+            )
+            await bot.send_message(message.chat.id, f"""Твой баланс: {balance['data']}
+Твой реферальный баланс: {balance['ref_balance']}
+
+Выбери время для просмотра статистики: """, reply_markup=kb)
+            await photo_do_state.time_delta.set()
+        else: await bot.send_message(message.from_user.id, db_request['text'])
+    else:
+        await message.delete()
+        db_request = db.select_user(message.from_user.id)
+        if db_request["status"]:
+            data[message.chat.id] = {}
+            balance = db.select_balance(message.chat.id)
+            data[message.chat.id]["user"] = db_request["name"]
+            kb = InlineKeyboardMarkup(row_width=1).add(
+                InlineKeyboardButton("Сутки", callback_data="1"),
+                InlineKeyboardButton("7 дней", callback_data="7"),
+                InlineKeyboardButton("30 дней", callback_data="30"),
+                InlineKeyboardButton("Вывод средств", callback_data="cash_out"),
+                InlineKeyboardButton("Реферальная ссылка", callback_data="ref_link")
+            )
+            await bot.send_message(message.chat.id, f"""Твой баланс: {balance['data']}$
+Твой реферальный баланс: {balance['ref_balance']}$
+
+Выбери время для просмотра статистики: """, reply_markup=kb)
+            await photo_do_state.time_delta.set()
+        else: await bot.send_message(message.from_user.id, db_request['text'])
     
 @dp.message_handler(commands=["id"])
 async def id_command(message : types.Message):
     await message.reply(message.from_user.id)
 
-@dp.message_handler(commands=["admin"], state=photo_do_state.time_delta)
+@dp.message_handler(commands=["admin"], state="*")
 async def id_command(message : types.Message, state : FSMContext):
     for id in ADMIN_ID:
         if str(message.from_user.id) == id:
@@ -90,7 +125,7 @@ async def start_command(message : types.Message):
     
 @dp.callback_query_handler(state=photo_do_state.time_delta)
 async def process_buy_command(callback_query: types.CallbackQuery, state : FSMContext):
-    if callback_query.data != "cash_out":
+    if callback_query.data != "cash_out" and callback_query.data != "ref_link":
         kb = InlineKeyboardMarkup(row_width=1).add(
                 InlineKeyboardButton("Сутки", callback_data="1"),
                 InlineKeyboardButton("7 дней", callback_data="7"),
@@ -108,12 +143,14 @@ async def process_buy_command(callback_query: types.CallbackQuery, state : FSMCo
         db_ansver = db.select_balance(callback_query.from_user.id)
         if db_ansver['status']:
             await bot.send_message(callback_query.from_user.id, "Введите сумму для вывода, не больше чем есть у вас на балансе")
-            await bot.send_message(callback_query.from_user.id, f"На вашем балансе {db_ansver['data']}")
+            await bot.send_message(callback_query.from_user.id, f"На вашем балансе {db_ansver['data']}, на вашем реферальном балансе {db_ansver['ref_balance']}")
             await out_cash.amount.set()
         else: 
             await bot.send_message(callback_query.from_user.id, db_ansver['text'])
             await bot.send_message(callback_query.from_user.id, "Напишите /start")
             await state.finish()
+    elif callback_query.data == "ref_link":
+        await bot.send_message(callback_query.from_user.id, f"Твоя реферальная ссылка: http://t.me/{BOT_NAME}?start={callback_query.from_user.id}")
 
 amount_data = {}
 
@@ -216,6 +253,20 @@ async def start_command(message : types.Message, state : FSMContext):
     if db.create_user(data[message.chat.id]["user_id"], message.text)['status']:
         await bot.send_message(message.chat.id, "Данные приняты!")
     
+
+@dp.callback_query_handler(text="ref_view")
+async def process_buy_command(callback_query: types.CallbackQuery): 
+    await bot.send_message(callback_query.from_user.id, "Введите тг айди того, чей реферал хотите посмотреть")
+    await ref_view.user_id.set()
+
+@dp.message_handler(state=ref_view.user_id)
+async def start_command(message : types.Message, state : FSMContext):
+    ansv = db.select_refs(message.text)
+    if len(ansv['data']) > 0:
+        await bot.send_message(message.from_user.id, f"""Рефералы {message.text}: {ansv['data']}""", reply_markup=admin_kb)
+    else: await bot.send_message(message.from_user.id, f"""Рефералы {message.text} отсутствуют""", reply_markup=admin_kb)
+    await state.finish()
+
 @dp.callback_query_handler()
 async def process_buy_command(callback_query: types.CallbackQuery):
     await callback_query.message.delete()
