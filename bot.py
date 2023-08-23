@@ -17,6 +17,7 @@ from db import database
 admin_kb = InlineKeyboardMarkup(row_width=1).add(
     InlineKeyboardButton("Добавить айди", callback_data="add_id"),
     InlineKeyboardButton("Изменить баланс", callback_data="change_balance"),
+    InlineKeyboardButton("Посмотреть баланс", callback_data="view_balance"),
     InlineKeyboardButton("Просмотреть реферелов", callback_data="ref_view")
 )
 
@@ -26,6 +27,9 @@ class photo_do_state(StatesGroup):
 
 class ref_view(StatesGroup):
     user_id = State()
+
+class view_balance(StatesGroup):
+    chat_id = State()
 
 class add_user(StatesGroup):
     user_id = State()
@@ -255,6 +259,17 @@ async def start_command(message : types.Message, state : FSMContext):
     if db.create_user(data[message.chat.id]["user_id"], message.text)['status']:
         await bot.send_message(message.chat.id, "Данные приняты!")
     
+@dp.callback_query_handler(text="view_balance")
+async def process_buy_command(callback_query: types.CallbackQuery): 
+    await bot.send_message(callback_query.from_user.id, "Введите тг айди того, чей баланс хотите посмотреть")
+    await view_balance.chat_id.set()
+
+@dp.message_handler(state=view_balance.chat_id)
+async def start_command(message : types.Message, state : FSMContext):
+    db_ansver = db.select_balance(message.text)
+    if db_ansver['status']: await message.reply(f"На балансе: {db_ansver['data']}", reply_markup=admin_kb)
+    else: await message.reply(db_ansver['text'], reply_markup=admin_kb)
+    await state.finish()
 
 @dp.callback_query_handler(text="ref_view")
 async def process_buy_command(callback_query: types.CallbackQuery): 
